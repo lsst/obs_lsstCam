@@ -366,24 +366,18 @@ def ampPixelToCcdPixel(x, y, detector, channel):
     """
 
     amp = channelToAmp(detector, channel)
-    rawBBox, rawDataBBox = amp.getRawBBox(), amp.getRawDataBBox()
-    # Allow for flips (due e.g. to physical location of the amplifiers)
-    w, h = rawBBox.getDimensions()
-    if amp.getRawFlipX():
-        rawBBox.flipLR(w)
-        rawDataBBox.flipLR(w)
+    bbox = amp.getRawDataBBox()
 
-        x = rawBBox.getWidth() - x - 1
+    # Allow for flips (due e.g. to physical location of the amplifiers)
+    x, y = geom.PointI(x, y)            # definitely ints
+    w, h = bbox.getDimensions()
+    if amp.getRawFlipX():
+        x = w - x - 1
 
     if amp.getRawFlipY():
-        rawBBox.flipTB(h)
-        rawDataBBox.flipTB(h)
+        y = h - y - 1
 
-        y = rawBBox.getHeight() - y - 1
-
-    dxy = rawBBox.getBegin() - rawDataBBox.getBegin()   # correction for overscan etc.
-
-    return amp.getBBox().getBegin() + dxy + geom.ExtentI(x, y)
+    return amp.getBBox().getBegin() + geom.ExtentI(x, y)
 
 
 def ccdPixelToAmpPixel(xy, detector):
@@ -411,31 +405,28 @@ def ccdPixelToAmpPixel(xy, detector):
     RuntimeError
         If the requested pixel doesn't lie on the detector
     """
+    xy = geom.PointI(xy)                # use pixel coordinates
 
     found = False
     for amp in detector:
-        if geom.BoxD(amp.getBBox()).contains(xy):
+        if amp.getBBox().contains(xy):
+            x, y = xy - amp.getBBox().getBegin()  # coordinates within data segment
             found = True
-            xy = geom.PointI(xy)     # pixel coordinates as ints
             break
 
     if not found:
         raise RuntimeError("Point (%g, %g) does not lie on detector %s" % (xy[0], xy[1], detector.getName()))
 
-    x, y = xy - amp.getBBox().getBegin()   # offset from origin of amp's data segment
-
     # Allow for flips (due e.g. to physical location of the amplifiers)
-    w, h = amp.getRawDataBBox().getDimensions()
+    w, h = amp.getBBox().getDimensions()
+
     if amp.getRawFlipX():
         x = w - x - 1
 
     if amp.getRawFlipY():
         y = h - y - 1
 
-    dxy = amp.getRawBBox().getBegin() - amp.getRawDataBBox().getBegin()   # correction for overscan etc.
-    xy = geom.ExtentI(x, y) - dxy
-
-    return amp, xy
+    return amp, geom.PointI(x, y)
 
 
 def focalMmToCcdPixel(camera, focalPlaneXY):

@@ -24,8 +24,9 @@ import sys
 import unittest
 
 import lsst.utils.tests
-from lsst.geom import arcseconds, Extent2I
+from lsst.geom import arcseconds, Extent2I, PointD, PointI
 import lsst.afw.image
+from lsst.obs.lsst.cameraTransforms import LsstCameraTransforms
 
 from lsst.obs.lsst.testHelper import ObsLsstButlerTests, ObsLsstObsBaseOverrides
 
@@ -187,6 +188,62 @@ class TestLsstCam(ObsLsstObsBaseOverrides, ObsLsstButlerTests):
 
         with self.assertRaises(RuntimeError):
             self.mapper._extractDetectorName({'visit': 1})
+
+    def testCameraTransforms(self):
+        """Test the geometry routines requested by the camera team
+
+        These are found in cameraTransforms.py"""
+
+        camera = self.butler.get('camera', immediate=True)
+
+        raft = 'R22'
+        sensor = 'S11'
+        ccdid = f"{raft}_{sensor}"
+
+        lct = LsstCameraTransforms(camera)
+
+        # check that we can map ccd pixels to amp pixels
+        for cxy, apTrue in [
+                ((0,   0), (1, 508, 0)),  # noqa: E241
+                ((509, 0), (2, 508, 0)),
+        ]:
+            ap = lct.ccdPixelToAmpPixel(*cxy, ccdid)
+            self.assertEqual(ap, apTrue)
+
+        # check inverse mapping
+        for ap, cpTrue in [
+                ((508, 0, 1), (0, 0)),
+                ((0, 0, 9), (4071, 3999)),
+        ]:
+            cp = lct.ampPixelToCcdPixel(*ap, ccdid)
+            self.assertEqual(cp, PointI(*cpTrue))
+
+        # check round-tripping
+        ampX, ampY, channel = 2, 0, 1
+        cx, cy = lct.ampPixelToCcdPixel(ampX, ampY, channel, ccdid)
+        finalChannel, finalAmpX, finalAmpY = lct.ccdPixelToAmpPixel(cx, cy, ccdid)
+        self.assertEqual((finalAmpX, finalAmpY, finalChannel), (ampX, ampY, channel))
+
+        # Check that four amp pixels near the camera's centre are
+        # indeed close in focal plane coords
+        for ap, fpTrue in [
+                ((508, 1999,   5), ( 0.005, -0.005)),  # noqa: E201,E241
+                ((0,   1999,   4), (-0.005, -0.005)),  # noqa: E201,E241
+                ((0,   1999,  13), (-0.005,  0.005)),  # noqa: E201,E241
+                ((508, 1999,  12), ( 0.005,  0.005)),  # noqa: E201,E241
+        ]:
+            fp = lct.ampPixelToFocalMm(*ap, ccdid)
+            self.assertAlmostEqual((fp - PointD(*fpTrue)).computeNorm(), 0.0)
+
+        # and for ccd coordinates:
+        for cp, fpTrue in [
+                ((2035, 1999), (-0.005, -0.005)),  # noqa: E201,E241
+                ((2036, 1999), ( 0.005, -0.005)),  # noqa: E201,E241
+                ((2035, 2000), (-0.005,  0.005)),  # noqa: E201,E241
+                ((2036, 2000), ( 0.005,  0.005)),  # noqa: E201,E241
+        ]:
+            fp = lct.ccdPixelToFocalMm(*cp, ccdid)
+            self.assertAlmostEqual((fp - PointD(*fpTrue)).computeNorm(), 0.0)
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):

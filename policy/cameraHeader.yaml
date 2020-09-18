@@ -170,7 +170,7 @@ CCD_E2V : &CCD_E2V
 
 CCD_ITL : &CCD_ITL
     detectorType : 0
-    refpos : [2036.5, 2000.5]
+    refpos : [2035.5, 1999.5]
     offset : [.nan, .nan]
     # This is the orientation we need to put the serial direction along the x-axis
     bbox : [[0, 0], [4071, 3999]]
