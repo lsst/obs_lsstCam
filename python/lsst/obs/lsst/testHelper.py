@@ -71,6 +71,10 @@ class ObsLsstButlerTests(lsst.utils.tests.TestCase):
 class ObsLsstObsBaseOverrides(lsst.obs.base.tests.ObsTests):
     """Specialist butler tests for obs_lsst."""
 
+    @unittest.skip("raw_sub not supported bt obs_lsst")
+    def test_raw_sub_bbox(self):
+        return
+
     def testRawVisitInfo(self):
         visitInfo = self.butler.get("raw_visitInfo", self.dataIds["raw"])
         self.assertIsInstance(visitInfo, lsst.afw.image.VisitInfo)
