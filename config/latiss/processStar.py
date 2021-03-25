@@ -13,6 +13,7 @@ config.isr.doLinearize = False
 # to degrade performance (possibly due to bad darks, but take care here)
 config.isr.doDark = False
 config.isr.doFlat = False
+config.isr.doFringe = False
 config.isr.doDefect = True
 config.isr.doCrosstalk = False
 config.isr.doSaturationInterpolation = False
