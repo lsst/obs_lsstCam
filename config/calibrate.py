@@ -79,3 +79,6 @@ config.measurement.plugins["base_Jacobian"].pixelScale = 0.2
 
 # Prevent spurious detections in vignetting areas
 config.detection.thresholdType = 'pixel_stdev'
+
+# Add debiased moments
+config.measurement.plugins.names |= ["ext_shapeHSM_HsmPsfMomentsDebiased"]
