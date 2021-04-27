@@ -88,17 +88,12 @@ class LsstCamRawFormatter(FitsRawFormatterBase):
         """
         return self.readFull().getImage()
 
-    def readFull(self, parameters=None):
+    def readFull(self):
         """Read the complete exposure.
 
         This correctly fixes amplifier bounding box deviations from
         the camera definitions, and so should provide the safest
         interface to the data.
-
-        Parameters
-        ----------
-        parameters : `dict`, optional
-            No parameters are currently used.
 
         Returns
         -------
