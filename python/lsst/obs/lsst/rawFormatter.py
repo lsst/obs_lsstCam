@@ -37,6 +37,7 @@ from astro_metadata_translator import fix_header, merge_headers
 
 import lsst.afw.fits
 from lsst.obs.base import FitsRawFormatterBase
+from lsst.afw.cameraGeom import makeUpdatedDetector
 
 from ._instrument import LsstCam, Latiss, \
     LsstCamImSim, LsstCamPhoSim, LsstTS8, \
@@ -44,7 +45,7 @@ from ._instrument import LsstCam, Latiss, \
 from .translators import LatissTranslator, LsstCamTranslator, \
     LsstUCDCamTranslator, LsstTS3Translator, LsstComCamTranslator, \
     LsstCamPhoSimTranslator, LsstTS8Translator, LsstCamImSimTranslator
-from .assembly import fixAmpsAndAssemble, readRawAmps
+from .assembly import fixAmpsAndAssemble, fixAmpGeometry, readRawAmps, warn_once
 
 
 class LsstCamRawFormatter(FitsRawFormatterBase):
@@ -76,7 +77,35 @@ class LsstCamRawFormatter(FitsRawFormatterBase):
         return md
 
     def getDetector(self, id):
-        return self._instrument.getCamera()[id]
+        in_detector = self._instrument.getCamera()[id]
+        # The detectors attached to the Camera object represent the on-disk
+        # amplifier geometry, not the assembled raw.  But Butler users
+        # shouldn't know or care about what's on disk; they want the Detector
+        # that's equivalent to `butler.get("raw", ...).getDetector()`, so we
+        # adjust it accordingly.  This parallels the logic in
+        # fixAmpsAndAssemble, but that function and the ISR AssembleCcdTask it
+        # calls aren't set up to handle bare bounding boxes with no pixel.  We
+        # also can't remove those without API breakage.  So this is fairly
+        # duplicative, and hence fragile.
+        # We start by fixing amp bounding boxes based on the size of the amp
+        # images themselves, because the camera doesn't have the right overscan
+        # regions for all images.
+        filename = self.fileDescriptor.location.path
+        temp_detector = in_detector.rebuild()
+        temp_detector.clear()
+        with warn_once(filename) as logCmd:
+            for n, in_amp in enumerate(in_detector):
+                reader = lsst.afw.image.ImageFitsReader(filename, hdu=(n + 1))
+                out_amp, _ = fixAmpGeometry(in_amp,
+                                            bbox=reader.readBBox(),
+                                            metadata=reader.readMetadata(),
+                                            logCmd=logCmd)
+                temp_detector.append(out_amp)
+        adjusted_detector = temp_detector.finish()
+        # Now we need to apply flips and offsets to reflect assembly.  The
+        # function call that does this in fixAmpsAndAssemble is down inside
+        # ip.isr.AssembleCcdTask.
+        return makeUpdatedDetector(adjusted_detector)
 
     def readImage(self):
         """Read just the image component of the Exposure.
@@ -102,7 +131,7 @@ class LsstCamRawFormatter(FitsRawFormatterBase):
 
         """
         rawFile = self.fileDescriptor.location.path
-        ccd = self.getDetector(self.observationInfo.detector_num)
+        ccd = self._instrument.getCamera()[self.observationInfo.detector_num]
         ampExps = readRawAmps(rawFile, ccd)
         exposure = fixAmpsAndAssemble(ampExps, rawFile)
 
