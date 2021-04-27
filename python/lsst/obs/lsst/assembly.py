@@ -85,8 +85,10 @@ def fixAmpGeometry(inAmp, bbox, metadata, logCmd=None):
     metadata : `lsst.daf.base.PropertyList`
         FITS header metadata from the amplifier HDU.
     logCmd : `function`, optional
-        Call back to use to issue log messages.  Arguments to this function
-        should match arguments to be accepted by normal logging functions.
+        Call back to use to issue log messages about patching.  Arguments to
+        this function should match arguments to be accepted by normal logging
+        functions.  Warnings about bad EXTNAMES are always sent directly to
+        the module-level logger.
 
     Return
     ------
@@ -104,6 +106,12 @@ def fixAmpGeometry(inAmp, bbox, metadata, logCmd=None):
         # Define a null log command
         def logCmd(*args):
             return
+
+    # check that the book-keeping worked and we got the correct EXTNAME
+    extname = metadata.get("EXTNAME")
+    predictedExtname = f"Segment{inAmp.getName()[1:]}"
+    if extname is not None and predictedExtname != extname:
+        logger.warning('expected to see EXTNAME == "%s", but saw "%s"', predictedExtname, extname)
 
     modified = False
 
@@ -233,16 +241,10 @@ def fixAmpsAndAssemble(ampExps, msg):
     tempCcd = ccd.rebuild()
     tempCcd.clear()
     for amp, ampExp in zip(ccd, ampExps):
-        # check that the book-keeping worked and we got the correct EXTNAME
-        extname = ampExp.getMetadata().get("EXTNAME")
-        predictedExtname = f"Segment{amp.getName()[1:]}"
-        if extname is not None and predictedExtname != extname:
-            logger.warn('%s: expected to see EXTNAME == "%s", but saw "%s"', msg, predictedExtname, extname)
-
-        outAmp, modified = fixAmpGeometry(amp,
-                                          bbox=ampExp.getBBox(),
-                                          metadata=ampExp.getMetadata(),
-                                          logCmd=logCmd)
+        outAmp, _ = fixAmpGeometry(amp,
+                                   bbox=ampExp.getBBox(),
+                                   metadata=ampExp.getMetadata(),
+                                   logCmd=logCmd)
         tempCcd.append(outAmp)
 
     ccd = tempCcd.finish()
