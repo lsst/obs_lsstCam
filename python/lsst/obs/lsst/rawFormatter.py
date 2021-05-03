@@ -77,6 +77,7 @@ class LsstCamRawFormatter(FitsRawFormatterBase):
         return md
 
     def getDetector(self, id):
+        # Docstring inherited.
         in_detector = self._instrument.getCamera()[id]
         # The detectors attached to the Camera object represent the on-disk
         # amplifier geometry, not the assembled raw.  But Butler users
@@ -108,28 +109,11 @@ class LsstCamRawFormatter(FitsRawFormatterBase):
         return makeUpdatedDetector(adjusted_detector)
 
     def readImage(self):
-        """Read just the image component of the Exposure.
-
-        Returns
-        -------
-        image : `~lsst.afw.image.Image`
-            In-memory image component.
-        """
+        # Docstring inherited.
         return self.readFull().getImage()
 
     def readFull(self):
-        """Read the complete exposure.
-
-        This correctly fixes amplifier bounding box deviations from
-        the camera definitions, and so should provide the safest
-        interface to the data.
-
-        Returns
-        -------
-        exposure : `~lsst.afw.image.Exposure`
-            Complete in-memory exposure representation.
-
-        """
+        # Docstring inherited.
         rawFile = self.fileDescriptor.location.path
         ccd = self._instrument.getCamera()[self.observationInfo.detector_num]
         ampExps = readRawAmps(rawFile, ccd)
