@@ -134,21 +134,7 @@ class LsstCamRawFormatter(FitsRawFormatterBase):
         ccd = self._instrument.getCamera()[self.observationInfo.detector_num]
         ampExps = readRawAmps(rawFile, ccd)
         exposure = fixAmpsAndAssemble(ampExps, rawFile)
-
-        mask = self.readMask()
-        if mask is not None:
-            exposure.setMask(mask)
-        variance = self.readVariance()
-        if variance is not None:
-            exposure.setVariance(variance)
-
-        info = exposure.getInfo()
-        info.setFilterLabel(self.makeFilterLabel())
-        info.setVisitInfo(self.makeVisitInfo())
-        info.setWcs(self.makeWcs(info.getVisitInfo(), info.getDetector()))
-
-        exposure.setMetadata(self.metadata)
-
+        self.attachComponentsFromMetadata(exposure)
         return exposure
 
 
